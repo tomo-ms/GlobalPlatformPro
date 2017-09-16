@@ -12,6 +12,7 @@
     <get src="https://downloads.bouncycastle.org/java/bcprov-jdk15on-157.jar" dest="lib" verbose="true" skipexisting="true"/>
     <get src="https://github.com/martinpaljak/apdu4j/releases/download/v0.0.34/apdu4j-pcsc.jar" dest="lib" verbose="true" skipexisting="true"/>
     <get src="https://repo1.maven.org/maven2/com/google/guava/guava/22.0/guava-22.0.jar" dest="lib" verbose="true" skipexisting="true"/>
+    <get src="http://repo1.maven.org/maven2/com/payneteasy/ber-tlv/1.0-7/ber-tlv-1.0-7.jar" dest="lib" verbose="true" skipexisting="true"/>
     <checksum algorithm="SHA-256" file="lib/jopt-simple-5.0.4.jar" property="df26cc58f235f477db07f753ba5a3ab243ebe5789d9f89ecf68dd62ea9a66c28" verifyProperty="joptOK"/>
     <checksum algorithm="SHA-256" file="lib/slf4j-api-1.7.25.jar" property="18c4a0095d5c1da6b817592e767bb23d29dd2f560ad74df75ff3961dbde25b79" verifyProperty="slfjapiOK"/>
     <checksum algorithm="SHA-256" file="lib/slf4j-simple-1.7.25.jar" property="0966e86fffa5be52d3d9e7b89dd674d98a03eed0a454fbaf7c1bd9493bd9d874" verifyProperty="slfjsimpleOK"/>
@@ -19,6 +20,7 @@
     <checksum algorithm="SHA-256" file="lib/bcprov-jdk15on-157.jar" property="4c7fb5f7fb043fedc4b7e7af88871050f61af8dea7aaade87f8ebd60e509cd89" verifyProperty="bouncyOK"/>
     <checksum algorithm="SHA-256" file="lib/apdu4j-pcsc.jar" property="c83739847a7b1e323e4d0cad94fe50858ecc9435a59ee429d55ec02934d52a30" verifyProperty="apduOK"/>
     <checksum algorithm="SHA-256" file="lib/guava-22.0.jar" property="1158e94c7de4da480873f0b4ab4a1da14c0d23d4b1902cc94a58a6f0f9ab579e" verifyProperty="guavaOK"/>
+    <checksum algorithm="SHA-256" file="lib/ber-tlv-1.0-7.jar" property="08f0a31d5a4e2a4aea53602c5169553995c9551207db66252c80e47620696d84" verifyProperty="bertlvOK"/>
     <fail message="Checksum failure">
       <condition>
         <or>
@@ -29,6 +31,7 @@
           <isfalse value="${bouncyOK}"/>
           <isfalse value="${apduOK}"/>
           <isfalse value="${guavaOK}"/>
+          <isfalse value="${bertlvOK}"/>
         </or>
       </condition>
     </fail>
@@ -40,6 +43,7 @@
     <pathelement location="lib/bcprov-jdk15on-157.jar"/>
     <pathelement location="lib/slf4j-api-1.7.25.jar"/>
     <pathelement location="lib/guava-22.0.jar"/>
+    <pathelement location="lib/ber-tlv-1.0-7.jar"/>
   </path>
   <target name="make" depends="fetch,compile"/>
   <target name="compile" description="compile the source">
@@ -63,6 +67,7 @@
       <zipfileset src="lib/apdu4j-pcsc.jar" />
       <zipfileset src="optimized-globalplatform.jar" excludes="org/bouncycastle/x509/"/>
       <zipfileset src="lib/slf4j-simple-1.7.25.jar" excludes="META-INF/maven/"/>
+      <zipfileset src="lib/ber-tlv-1.0-7.jar" excludes="META-INF/maven/"/>
       <manifest><attribute name="Main-Class" value="pro.javacard.gp.GPTool"/></manifest>
     </jar>
     <delete file="optimized-globalplatform.jar"/>
