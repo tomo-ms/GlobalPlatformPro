@@ -775,6 +775,22 @@ public class GlobalPlatform {
 	 *
 	 */
 	public void storeData(AID aid, byte[] data, byte P1) throws CardException, GPException {
+		List<byte[]> blocks = GPUtils.splitArray(data, wrapper.getBlockSize());
+		storeData(aid, blocks, P1);
+	}
+
+	/**
+	 * Sends STORE DATA commands to the application identified
+	 *
+	 * @param aid - AID of the target application (or Security Domain)
+	 *
+	 * @throws GPException
+	 * @throws CardException
+	 *
+	 * @see GP 2.1.1 9.5.2
+	 *
+	 */
+	public void storeData(AID aid, List<byte[]> blocks, byte P1) throws CardException, GPException {
 		// send the INSTALL for personalization command
 		ByteArrayOutputStream bo = new ByteArrayOutputStream();
 		try {
@@ -795,7 +811,6 @@ public class GlobalPlatform {
 		GPException.check(response, "Install for personalization failed");
 
 		// Now pump the data
-		List<byte[]> blocks = GPUtils.splitArray(data, wrapper.getBlockSize());
 		for (int i = 0; i < blocks.size(); i++) {
 			CommandAPDU load = new CommandAPDU(CLA_GP, INS_STORE_DATA, (i == (blocks.size() - 1)) ? P1 : 0x00, (byte) i, blocks.get(i));
 			response = transmit(load);
