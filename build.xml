@@ -63,7 +63,7 @@
       <zipfileset src="lib/apdu4j-pcsc.jar" />
       <zipfileset src="optimized-globalplatform.jar" excludes="org/bouncycastle/x509/"/>
       <zipfileset src="lib/slf4j-simple-1.7.25.jar" excludes="META-INF/maven/"/>
-      <manifest><attribute name="Main-Class" value="pro.javacard.gp.GPTool"/></manifest>
+      <manifest><attribute name="Main-Class" value="pro.javacard.gp.MyGPTool"/></manifest>
     </jar>
     <delete file="optimized-globalplatform.jar"/>
   </target>
