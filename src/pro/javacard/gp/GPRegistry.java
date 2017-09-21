@@ -22,26 +22,18 @@
 
 package pro.javacard.gp;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-import org.bouncycastle.asn1.ASN1ApplicationSpecific;
-import org.bouncycastle.asn1.ASN1Encodable;
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.ASN1TaggedObject;
-import org.bouncycastle.asn1.BERTags;
-import org.bouncycastle.asn1.DERApplicationSpecific;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.DERTaggedObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
+import com.payneteasy.tlv.BerTag;
+import com.payneteasy.tlv.BerTlv;
+import com.payneteasy.tlv.BerTlvParser;
+import com.payneteasy.tlv.BerTlvs;
 
 import apdu4j.HexUtils;
 import pro.javacard.gp.GPRegistryEntry.Kind;
@@ -60,6 +52,16 @@ public class GPRegistry implements Iterable<GPRegistryEntry> {
 	private static Logger logger = LoggerFactory.getLogger(GPRegistry.class);
 	boolean tags = true; // XXX (visibility) true if newer tags format should be used for parsing, false otherwise
 	LinkedHashMap<AID, GPRegistryEntry> entries = new LinkedHashMap<AID, GPRegistryEntry>();
+
+	private static final BerTag GP_REGISTRY_TAG = new BerTag(0xE3);
+	private static final BerTag APP_AID_TAG = new BerTag(0x4F);
+	private static final BerTag LIFECYCLE_TAG = new BerTag(0x9F, 0x70);
+	private static final BerTag PRIVILEGES_TAG = new BerTag(0xC5);
+	private static final BerTag SELECTION_PARAM_TAG = new BerTag(0xCF);
+	private static final BerTag ELF_AID_TAG = new BerTag(0xC4);
+	private static final BerTag SD_AID_TAG = new BerTag(0xCC);
+	private static final BerTag ELF_VER_TAG = new BerTag(0xCE);
+	private static final BerTag MODULE_AID_TAG = new BerTag(0x84);
 
 	/**
 	 * Add one entry to this registry.
@@ -229,71 +231,60 @@ public class GPRegistry implements Iterable<GPRegistryEntry> {
 	}
 
 	private void populate_tags(byte[] data, Kind type) throws GPDataException {
-		try (ASN1InputStream ais = new ASN1InputStream(data)) {
-			while (ais.available() > 0) {
-				DERApplicationSpecific registry_data = (DERApplicationSpecific) ais.readObject();
-				// System.out.println(ASN1Dump.dumpAsString(registry_data, true));
-				if (registry_data.getApplicationTag() == 3) {
-					// XXX: a bit ugly and wasting code, we populate both objects but add only one
-					GPRegistryEntryApp app = new GPRegistryEntryApp();
-					GPRegistryEntryPkg pkg = new GPRegistryEntryPkg();
-					ASN1Sequence seq = (ASN1Sequence) registry_data.getObject(BERTags.SEQUENCE);
-					for (ASN1Encodable p: Lists.newArrayList(seq.iterator())) {
-						if (p instanceof DERApplicationSpecific) {
-							ASN1ApplicationSpecific entry = DERApplicationSpecific.getInstance(p);
-							if (entry.getApplicationTag() == 15) {
-								AID aid = new AID(entry.getContents());
-								app.setAID(aid);
-								pkg.setAID(aid);
-							} else if (entry.getApplicationTag() == 5) {
-								// privileges
-								Privileges privs = Privileges.fromBytes(entry.getContents());
-								app.setPrivileges(privs);
-							} else if (entry.getApplicationTag() == 4) {
-								AID a = new AID(entry.getContents());
-								app.setLoadFile(a);
-							} else if (entry.getApplicationTag() == 12) {
-								AID a = new AID(entry.getContents());
-								app.setDomain(a);
-								pkg.setDomain(a);
-							} else if (entry.getApplicationTag() == 14) {
-								pkg.setVersion(entry.getContents());
-							} else {
-								// XXX there are cards that have unknown tags.
-								// Normally we'd like to avoid having proprietary data
-								// but the rest of the response parses OK. So just ignore these
-								// tags instead of throwing an exception
-								logger.warn("Unknown tag: " + HexUtils.bin2hex(entry.getEncoded()));
-							}
-						} else if (p instanceof DERTaggedObject) {
-							ASN1TaggedObject tag = DERTaggedObject.getInstance(p);
-							if (tag.getTagNo() == 112) { // lifecycle
-								ASN1OctetString lc = DEROctetString.getInstance(tag, false);
-								app.setLifeCycle(lc.getOctets()[0] & 0xFF);
-								pkg.setLifeCycle(lc.getOctets()[0] & 0xFF);
-							} else if (tag.getTagNo() == 4) { // Executable module AID
-								ASN1OctetString lc = DEROctetString.getInstance(tag, false);
-								AID a = new AID(lc.getOctets());
-								pkg.addModule(a);
-							} else {
-								logger.warn("Unknown data: " + HexUtils.bin2hex(tag.getEncoded()));
-							}
-						}
-					}
-					// Construct entry
-					if (type == Kind.ExecutableLoadFile) {
-						pkg.setType(type);
-						add(pkg);
+		BerTlvParser parser = new BerTlvParser();
+		BerTlvs tlvs = parser.parse(data);
+		List<BerTlv> tlvsList = tlvs.getList();
+		for( BerTlv tlv : tlvsList) {
+			if ( tlv.getTag().equals(GP_REGISTRY_TAG) ) {
+				GPRegistryEntryApp app = new GPRegistryEntryApp();
+				GPRegistryEntryPkg pkg = new GPRegistryEntryPkg();
+				List<BerTlv> elems = tlv.getValues();
+				for(BerTlv elem : elems) {
+					if (elem.getTag().equals(APP_AID_TAG)) {
+						AID aid = new AID(elem.getBytesValue());
+						app.setAID(aid);
+						pkg.setAID(aid);
+					} else if (elem.getTag().equals(PRIVILEGES_TAG)) {
+						// privileges
+						Privileges privs = Privileges.fromBytes(elem.getBytesValue());
+						app.setPrivileges(privs);
+					} else if (elem.getTag().equals(ELF_AID_TAG)) {
+						AID a = new AID(elem.getBytesValue());
+						app.setLoadFile(a);
+					} else if (elem.getTag().equals(SD_AID_TAG)) {
+						AID a = new AID(elem.getBytesValue());
+						app.setDomain(a);
+						pkg.setDomain(a);
+					} else if (elem.getTag().equals(ELF_VER_TAG)) {
+						pkg.setVersion(elem.getBytesValue());
+					} else if (elem.getTag().equals(LIFECYCLE_TAG)) { // lifecycle
+						byte val = elem.getBytesValue()[0];
+						app.setLifeCycle(val);
+						pkg.setLifeCycle(val);
+					} else if (elem.getTag().equals(MODULE_AID_TAG)) { // Executable module AID
+						AID a = new AID(elem.getBytesValue());
+						pkg.addModule(a);
+					} else if (elem.getTag().equals(SELECTION_PARAM_TAG)) { //  Implicit Selection Parameter
+						// Ignore
 					} else {
-						app.setType(type);
-						add(app);
+						// XXX there are cards that have unknown tags.
+						// Normally we'd like to avoid having proprietary data
+						// but the rest of the response parses OK. So just ignore these
+						// tags instead of throwing an exception
+						logger.warn("Unknown data: " + HexUtils.bin2hex(elem.getTag().bytes));
 					}
-				} else {
-					throw new GPDataException("Invalid tag", registry_data.getEncoded());
 				}
+				// Construct entry
+				if (type == Kind.ExecutableLoadFile) {
+					pkg.setType(type);
+					add(pkg);
+				} else {
+					app.setType(type);
+					add(app);
+				}
+			} else {
+				throw new GPDataException("Invalid tag", tlv.getTag().bytes);
 			}
-		} catch (IOException e) {
-			throw new GPDataException("Invalid data", e);
 		}
 	}
 

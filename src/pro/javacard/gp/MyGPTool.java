@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Scanner;
 
 import javax.crypto.Cipher;
 import javax.smartcardio.Card;
@@ -113,6 +114,7 @@ public final class MyGPTool {
 	private final static String OPT_SECURE_APDU = "secure-apdu";
 	private final static String OPT_SECURED = "secured";
 	private final static String OPT_STORE_DATA = "store-data";
+	private final static String OPT_STORE_DATA_FILE = "store-data-file";
 	private final static String OPT_TERMINALS = "terminals";
 	private final static String OPT_TERMINATE = "terminate";
 	private final static String OPT_UNINSTALL = "uninstall";
@@ -172,6 +174,7 @@ public final class MyGPTool {
 		parser.accepts(OPT_SECURED, "Transition SD to SECURED state").withOptionalArg().withValuesConvertedBy(ArgMatchers.aid());
 		parser.accepts(OPT_INITIALIZED, "Transition SD to INITIALIZED state").withOptionalArg().withValuesConvertedBy(ArgMatchers.aid());
 		parser.accepts(OPT_STORE_DATA, "STORE DATA to applet").withRequiredArg().withValuesConvertedBy(ArgMatchers.hex());
+		parser.accepts(OPT_STORE_DATA_FILE, "STORE DATA to applet form <File>").withRequiredArg().ofType(File.class);
 
 		parser.accepts(OPT_MAKE_DEFAULT, "Make AID the default").withRequiredArg().withValuesConvertedBy(ArgMatchers.aid());
 
@@ -668,6 +671,29 @@ public final class MyGPTool {
 							}
 						}
 
+						if (args.has(OPT_STORE_DATA_FILE)) {
+							if (args.has(OPT_APPLET)) {
+								List<byte[]>params = new ArrayList<byte[]>();
+								File file = (File) args.valueOf(OPT_STORE_DATA_FILE);
+								try (	FileInputStream fis = new FileInputStream(file);
+										Scanner script = new Scanner(fis);) {
+									while (script.hasNextLine()) {
+										String l = script.nextLine().trim();
+										l = l.substring(2);
+
+										// Skip comments
+										if (l.startsWith("#"))
+											continue;
+										byte[] b = HexUtils.hex2bin(l);
+										params.add(b);
+									}
+									gp.storeData((AID)args.valueOf(OPT_APPLET), params, (byte)0x80);
+								}
+							} else {
+								System.err.println("Must specify target application with -" + OPT_APPLET);
+							}
+						}
+
 						if (args.has(OPT_ACR_ADD)){
 							AidRefDo aidRefDo;
 							HashRefDo hashRefDo;
@@ -975,7 +1001,7 @@ public final class MyGPTool {
 			return true;
 		if (args.has(OPT_LOCK_CARD) || args.has(OPT_UNLOCK_CARD) || args.has(OPT_LOCK_APPLET) || args.has(OPT_UNLOCK_APPLET))
 			return true;
-		if (args.has(OPT_STORE_DATA) || args.has(OPT_INITIALIZED) || args.has(OPT_SECURED))
+		if (args.has(OPT_STORE_DATA) || args.has(OPT_STORE_DATA_FILE) || args.has(OPT_INITIALIZED) || args.has(OPT_SECURED))
 			return true;
 		return false;
 	}

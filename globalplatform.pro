@@ -8,6 +8,7 @@
 # these are library because we package everything back in
 -libraryjars lib/slf4j-simple-1.7.25.jar
 -libraryjars lib/apdu4j-pcsc.jar
+-libraryjars lib/ber-tlv-1.0-7.jar
 -libraryjars  <java.home>/lib/rt.jar
 -libraryjars  <java.home>/lib/jce.jar
 -outjars optimized-globalplatform.jar
